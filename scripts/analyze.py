@@ -646,12 +646,13 @@ def main():
     per_module_data = []
     if code == 0 and head_commit.strip():
         current_date = datetime.now().strftime("%Y-%m")
-        # Only add if not already covered by the last snapshot
-        if not snapshots or snapshots[-1]["date"] != current_date:
-            result = analyze_version(drupal_dir, head_commit.strip(), current_date, output_dir,
-                                     collect_per_module=True)
-            if result:
-                per_module_data = result.pop("perModule", [])
+        # Always collect per-module data from HEAD
+        result = analyze_version(drupal_dir, head_commit.strip(), current_date, output_dir,
+                                 collect_per_module=True)
+        if result:
+            per_module_data = result.pop("perModule", [])
+            # Only add snapshot if not already covered by the last one
+            if not snapshots or snapshots[-1]["date"] != current_date:
                 snapshots.append(result)
 
     # Cleanup work directory
