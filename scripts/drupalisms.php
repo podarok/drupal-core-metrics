@@ -78,9 +78,15 @@ const IMPLICIT_HOOKS = [
     'hook_install_tasks_alter',
     'hook_preprocess_HOOK',
     'hook_process_HOOK',
+    'hook_theme_suggestions_alter',
+    'hook_theme_suggestions_HOOK',
+    'hook_theme_suggestions_HOOK_alter',
     'hook_form_alter',
+    'hook_form_FORM_ID_alter',
+    'hook_form_BASE_FORM_ID_alter',
     'hook_hook_info',
-    // Entity lifecycle hooks (invoked via string concatenation)
+    // Entity lifecycle hooks - both generic and entity-type-specific patterns
+    // Generic hooks (called for ALL entity types)
     'hook_entity_insert',
     'hook_entity_update',
     'hook_entity_delete',
@@ -90,6 +96,17 @@ const IMPLICIT_HOOKS = [
     'hook_entity_load',
     'hook_entity_view',
     'hook_entity_access',
+    // Entity-type-specific pattern hooks (e.g., hook_node_insert, hook_user_update)
+    'hook_ENTITY_TYPE_insert',
+    'hook_ENTITY_TYPE_update',
+    'hook_ENTITY_TYPE_delete',
+    'hook_ENTITY_TYPE_presave',
+    'hook_ENTITY_TYPE_predelete',
+    'hook_ENTITY_TYPE_create',
+    'hook_ENTITY_TYPE_load',
+    'hook_ENTITY_TYPE_view',
+    'hook_ENTITY_TYPE_view_alter',
+    'hook_ENTITY_TYPE_access',
     // Block/query/plugin filter generics (specific instances filtered)
     'hook_block_build_alter',
     'hook_block_view_alter',
@@ -108,11 +125,13 @@ const IMPLICIT_HOOKS = [
  * Applied globally to ALL detected hooks (from ModuleHandler, #[Hook], and implicit).
  */
 const SPECIFIC_HOOK_PATTERNS = [
-    '/^(preprocess|process)_.+$/',           // preprocess_HOOK, process_HOOK
-    '/^form_.+_alter$/',                     // form_FORM_ID_alter, form_BASE_FORM_ID_alter
-    '/^theme_suggestions_.+$/',              // theme_suggestions_HOOK, theme_suggestions_HOOK_alter
-    '/^update_\d+$/',                        // update_N
-    '/^post_update_.+$/',                    // post_update_NAME
+    // Note: patterns use [a-z0-9_]+ to match only lowercase implementations,
+    // preserving UPPERCASE generic placeholders like preprocess_HOOK, post_update_NAME
+    '/^(preprocess|process)_[a-z0-9_]+$/',   // preprocess_block (not preprocess_HOOK)
+    '/^form_[a-z0-9_]+_alter$/',             // form_node_form_alter (not form_FORM_ID_alter)
+    '/^theme_suggestions_(?!alter$)[a-z0-9_]+$/',  // theme_suggestions_page (not theme_suggestions_HOOK or _alter)
+    '/^update_\d+$/',                        // update_8001 (not update_N)
+    '/^post_update_[a-z0-9_]+$/',            // post_update_fix_foo (not post_update_NAME)
     // Entity type lifecycle hooks (ENTITY_TYPE_OPERATION) - excludes generics and known false positives
     '/^(?!entity_|field_attach_|field_storage_pre_|field_access$|file_download_|jsonapi_|views_pre_|mass_|translate_|image_style_)[a-z_]+_(insert|update|delete|presave|predelete|create|load|view|access)$/',
     // Entity types starting with 'entity_' (entity_form_mode, entity_view_mode, entity_view_display)
@@ -738,8 +757,9 @@ class MagicKeyVisitor extends NodeVisitorAbstract
 /**
  * HOOKS - Collect distinct hooks from invocations (surface area)
  *
- * Detects hook invocations via ModuleHandler methods and legacy D7 functions.
- * Also includes IMPLICIT_HOOKS that are invoked through special mechanisms.
+ * Detects hook invocations via ModuleHandler methods, ThemeManager methods,
+ * and legacy D7 functions. Also includes IMPLICIT_HOOKS for hooks invoked
+ * through special mechanisms (string concatenation, variable indirection).
  */
 class HookTypeVisitor extends NodeVisitorAbstract
 {
@@ -756,10 +776,12 @@ class HookTypeVisitor extends NodeVisitorAbstract
         'invokeAllDeprecated' => 1,   // invokeAllDeprecated($message, $hook)
     ];
 
-    // ModuleHandler alter methods: method name → argument index of alter type
+    // Alter methods: method name → argument index of alter type
+    // Includes ModuleHandler::alter() and ThemeManager::alterForTheme()
     private const ALTER_METHODS = [
         'alter' => 0,
         'alterDeprecated' => 1,       // first arg is deprecation message
+        'alterForTheme' => 1,         // alterForTheme($theme, $type, ...) - type is second arg
     ];
 
     // Legacy D7 functions (all use first argument)
