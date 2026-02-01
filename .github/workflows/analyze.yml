@@ -37,6 +37,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data.json
-          git diff --staged --quiet || git commit -m "Update dashboard"
+          git diff --staged --quiet || git commit -m "- Regenerate metrics data"
           git pull --rebase
           git push
