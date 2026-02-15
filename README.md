@@ -4,6 +4,8 @@ A dashboard that tracks Drupal core's codebase over time: lines of code, complex
 
 **View the dashboard:** https://dbuytaert.github.io/drupal-core-metrics/
 
+**Learn more:** [Measuring Drupal Core code complexity](https://dri.es/measuring-drupal-core-code-complexity)
+
 
 ## Metrics
 
